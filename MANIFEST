@@ -1,0 +1,12 @@
+Changes
+MANIFEST
+Makefile.PL
+README
+lib/BioX/SeqUtils/RandomSequence.pm
+scripts/random-dinucleotide.pp
+scripts/random-protein.pp
+scripts/random-sequence.pp
+scripts/random-nucleotide.pp
+scripts/random-protein-set.pp
+t/00.load.t
+t/01.run.t
