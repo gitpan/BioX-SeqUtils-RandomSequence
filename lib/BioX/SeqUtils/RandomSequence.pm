@@ -7,7 +7,7 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.9.0');
+use version; our $VERSION = qv('0.9.1');
 
 {
         my %length_of    :ATTR( :get<length>   :set<length>   :default<'4'>    :init_arg<l> );
@@ -131,21 +131,24 @@ BioX::SeqUtils::RandomSequence - Creates a random nuc or prot sequence with give
 
 =head1 VERSION
 
-This document describes BioX::SeqUtils::RandomSequence version 0.9.0
+This document describes BioX::SeqUtils::RandomSequence version 0.9.1
 
 =head1 SYNOPSIS
 
 The package includes scripts for random nucleotide, dinucleotide, protein, and protein set. The length and frequency parameters should always be integers.
 
 To create a nucleotide:
+
     ./random-nucleotide.pp                               # Defaults: length 60, all frequencies .25
     ./random-nucleotide.pp -l2200 -a23 -c27 -g27 -t23    # Enrich GC content with length 2200
 
 To create a dinucleotide:
+
     ./random-dinucleotide.pp                             # Defaults: length 2, all frequencies .25
     ./random-dinucleotide.pp -a225 -c275 -g275 -t225     # Enrich GC content ~ more 
 
 To create a protein:
+
     ./random-protein.pp                                  # Defaults: length 60, all frequencies .25
     ./random-protein.pp -l2200 -a23 -c27 -g27 -t23       # Enrich underlying GC content, aa length 2200
 
@@ -156,6 +159,7 @@ To create a protein set (with common DNA shifted by one base):
 Additionally, a "master script" uses a tYpe parameter for any:
 
 To create a protein set:
+
     ./random-sequence.pp -yn -l100                       # Type n nucleotide
     ./random-sequence.pp -yd                             # Type d dinucleotide
     ./random-sequence.pp -yp -l100                       # Type p protein
