@@ -7,7 +7,7 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.9.1');
+use version; our $VERSION = qv('0.9.2');
 
 {
         my %length_of    :ATTR( :get<length>   :set<length>   :default<'4'>    :init_arg<l> );
@@ -131,7 +131,7 @@ BioX::SeqUtils::RandomSequence - Creates a random nuc or prot sequence with give
 
 =head1 VERSION
 
-This document describes BioX::SeqUtils::RandomSequence version 0.9.1
+This document describes BioX::SeqUtils::RandomSequence version 0.9.2
 
 =head1 SYNOPSIS
 
@@ -153,12 +153,11 @@ To create a protein:
     ./random-protein.pp -l2200 -a23 -c27 -g27 -t23       # Enrich underlying GC content, aa length 2200
 
 To create a protein set (with common DNA shifted by one base):
+
     ./random-protein-set.pp                              # Defaults: length 60, all frequencies .25
     ./random-protein-set.pp -l2200 -a23 -c27 -g27 -t23   # Enrich underlying GC content 
 
 Additionally, a "master script" uses a tYpe parameter for any:
-
-To create a protein set:
 
     ./random-sequence.pp -yn -l100                       # Type n nucleotide
     ./random-sequence.pp -yd                             # Type d dinucleotide
@@ -180,9 +179,14 @@ In script, each sequence type can be accessed using the "y" (tYpe) parameter wit
 You can use the same randomizer object to create all types of sequences, by passing the changing parameters with each call.
 
     my $nuc_short     = $randomizer->rand_seq({ y => 'n', l => 21 });
-    my $nuc_long      = $randomizer->rand_seq({ l => 2200 });
-    my $protein_now   = $randomizer->rand_seq({ y => 'p' });
-    my $dinuc_for_fun = $randomizer->rand_seq({ y => 'd' });
+    my $nuc_long      = $randomizer->rand_seq({ l => 2200 });          # Still nucleotide
+    my $nuc_richer    = $randomizer->rand_seq({ a => 225, 
+                                                c => 275, 
+						g => 275, 
+						t => 225 });           # Still length 2200
+    my $protein_now   = $randomizer->rand_seq({ y => 'p' });           # Still richer GC
+    my $dinuc_for_fun = $randomizer->rand_seq({ y => 'd',
+                                                a => 1 });             # Missing bases resets all freq to 1
 
 Type "protein" creates a protein of the given length l by creating a random nucleotide sequence with the given nucleotide frequencies of length l * 3, which is translated into a protein. The default length is 60. 
     
