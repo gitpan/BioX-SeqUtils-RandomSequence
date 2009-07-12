@@ -7,25 +7,22 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.9.2');
+use version; our $VERSION = qv('0.9.3');
 
 {
+        my %type_of      :ATTR( :get<type>     :set<type>     :default<'n'>    :init_arg<y> );
         my %length_of    :ATTR( :get<length>   :set<length>   :default<'4'>    :init_arg<l> );
+        my %table_of     :ATTR( :get<table>    :set<table>    :default<'1'>    :init_arg<s> );
         my %a_freq_of    :ATTR( :get<a_freq>   :set<a_freq>   :default<'1'>    :init_arg<a> );
         my %c_freq_of    :ATTR( :get<c_freq>   :set<c_freq>   :default<'1'>    :init_arg<c> );
         my %g_freq_of    :ATTR( :get<g_freq>   :set<g_freq>   :default<'1'>    :init_arg<g> );
         my %t_freq_of    :ATTR( :get<t_freq>   :set<t_freq>   :default<'1'>    :init_arg<t> );
-        my %type_of      :ATTR( :get<type>     :set<type>     :default<'n'>    :init_arg<y> );
-        my %seed_of      :ATTR( :get<seed>     :set<seed>     :default<''>     );
+        my %tmpl_of      :ATTR( :get<tmpl>     :set<tmpl>     :default<''>     );
                 
         sub START {
                 my ($self, $ident, $arg_ref) = @_;
 		$self->_check_type();
-		my @seed = split( //, 'A' x $self->get_a_freq() . 
-		                      'C' x $self->get_c_freq() . 
-				      'G' x $self->get_g_freq() . 
-				      'T' x $self->get_t_freq() );
-		$self->set_seed( \@seed );
+		$self->_reset_tmpl();
                 return;
         }
 
@@ -50,10 +47,10 @@ use version; our $VERSION = qv('0.9.2');
 		$self->_args_to_attributes( $arg_ref );
 
 		# Create random nucleotide sequence of specified length
-		my $seed_length = $self->get_length();
-		my $nucleotide  = $self->randomize_seed();
-		while ( length($nucleotide) < $seed_length ) { $nucleotide .= $self->randomize_seed(); }
-		$nucleotide     =~ s/^([ACGT]{$seed_length}).*$/$1/;
+		my $tmpl_length = $self->get_length();
+		my $nucleotide  = $self->randomize_tmpl();
+		while ( length($nucleotide) < $tmpl_length ) { $nucleotide .= $self->randomize_tmpl(); }
+		$nucleotide     =~ s/^([ACGT]{$tmpl_length}).*$/$1/;
                 return $nucleotide;
         }
 
@@ -65,7 +62,8 @@ use version; our $VERSION = qv('0.9.2');
 
 		my $opt_l       = $arg_ref->{l} ? $arg_ref->{l} * 3 : $self->get_length() * 3;
 		my $seq         = $self->rand_nuc({ l => $opt_l });
-		my $codon_table = Bio::Tools::CodonTable->new();
+		my $codon_table = Bio::Tools::CodonTable->new( -id => $self->get_table() );
+		if ( $codon_table->name() eq '' ) { print "  Error: Codon Table " . $self->get_table() . " not defined.\n"; exit; }
 		my $protein     = $codon_table->translate( $seq );
 		
                 return $protein;
@@ -82,35 +80,45 @@ use version; our $VERSION = qv('0.9.2');
 		my $seq1        = $seq; $seq1  =~ s/.$//;  # Remove the last base
 		my $seq2        = $seq; $seq2  =~ s/^.//;  # Remove the first base
 		
-		my $codon_table = Bio::Tools::CodonTable->new();
+		my $codon_table = Bio::Tools::CodonTable->new( -id => $self->get_table() );
+		if ( $codon_table->name() eq '' ) { print "  Error: Codon Table " . $self->get_table() . " not defined.\n"; exit; }
 		my $protein1    = $codon_table->translate( $seq1 );
 		my $protein2    = $codon_table->translate( $seq2 );
 		
-                return [ $protein1, $protein2 ];
+                return wantarray() ? ( $protein1, $protein2 ) : [ $protein1, $protein2 ];
         }
 
-	sub randomize_seed {
+	sub randomize_tmpl {
 		my ( $self ) = @_;
-		my $seed     = $self->get_seed();
-		my @seed     = @$seed;
-		for ( my $i = @seed; $i >= 0; --$i ) {
+		my $tmpl     = $self->get_tmpl();
+		my @tmpl     = @$tmpl;
+		for ( my $i = @tmpl; $i >= 0; --$i ) {
 			my $j = int rand ($i + 1);
 			next if $i == $j;
-			@seed[$i,$j] = @seed[$j,$i];
+			@tmpl[$i,$j] = @tmpl[$j,$i];
 		}
 		no warnings 'all';
-		return join("", @seed);
+		return join("", @tmpl);
 	}
 
 	sub _args_to_attributes {
 		my ( $self, $arg_ref ) = @_;
-		if ( defined $arg_ref->{l} ) { $self->set_length( $arg_ref->{l} ); }
-		if ( defined $arg_ref->{a} ) { $self->set_a_freq( $arg_ref->{a} ); }
-		if ( defined $arg_ref->{c} ) { $self->set_c_freq( $arg_ref->{c} ); }
-		if ( defined $arg_ref->{g} ) { $self->set_g_freq( $arg_ref->{g} ); }
-		if ( defined $arg_ref->{t} ) { $self->set_t_freq( $arg_ref->{t} ); }
+
 		if ( defined $arg_ref->{y} ) { $self->set_type( $arg_ref->{y} ); }
+		if ( defined $arg_ref->{l} ) { $self->set_length( $arg_ref->{l} ); }
+
+		my $freq_changed       = 0;
+
+		if ( defined $arg_ref->{a} ) { $self->set_a_freq( $arg_ref->{a} ); $freq_changed++; }
+		if ( defined $arg_ref->{c} ) { $self->set_c_freq( $arg_ref->{c} ); $freq_changed++; }
+		if ( defined $arg_ref->{g} ) { $self->set_g_freq( $arg_ref->{g} ); $freq_changed++; }
+		if ( defined $arg_ref->{t} ) { $self->set_t_freq( $arg_ref->{t} ); $freq_changed++; }
+		
+		# All frequencies must be set together or they are all reset to 1
+		if ( $freq_changed && $freq_changed < 4 ) { $self->set_a_freq( 1 ); $self->set_c_freq( 1 ); $self->set_g_freq( 1 ); $self->set_t_freq( 1 ); }
+
 		$self->_check_type();
+		$self->_reset_tmpl() if $freq_changed;
 		return;
 	}
 
@@ -118,6 +126,16 @@ use version; our $VERSION = qv('0.9.2');
 		my ( $self, $arg_ref ) = @_;
 		my $type = $self->get_type(); 
 		if ( $type =~ m/^[^ndps]/ )   { print STDERR "  Error: Type (y) must be n, d, p, or s.\n"; exit; }
+		return;
+	}
+
+	sub _reset_tmpl {
+		my ( $self, $arg_ref ) = @_;
+		my @tmpl = split( //, 'A' x $self->get_a_freq() . 
+		                      'C' x $self->get_c_freq() . 
+				      'G' x $self->get_g_freq() . 
+				      'T' x $self->get_t_freq() );
+		$self->set_tmpl( \@tmpl );
 		return;
 	}
 }
@@ -131,7 +149,7 @@ BioX::SeqUtils::RandomSequence - Creates a random nuc or prot sequence with give
 
 =head1 VERSION
 
-This document describes BioX::SeqUtils::RandomSequence version 0.9.2
+This document describes BioX::SeqUtils::RandomSequence version 0.9.3
 
 =head1 SYNOPSIS
 
@@ -164,11 +182,16 @@ Additionally, a "master script" uses a tYpe parameter for any:
     ./random-sequence.pp -yp -l100                       # Type p protein
     ./random-sequence.pp -ys -l100                       # Type s protein set
 
+This module uses Bio::Tools::CodonTable for translations, and the parameter s can be used to change from the default (1) Standard:
+
+    ./random-protein.pp -l2200 -s2                       # Non-standard codon table
+
 In script, each sequence type can be accessed using the "y" (tYpe) parameter with rand_seq(). The default is "nucleotide". The type may be set in new() or any of the rand_X() methods. All four frequencies are set to "1" by default ( so that the probablity of each A, C, G, T is 0.25 ).
 
     use BioX::SeqUtils::RandomSequence;
 
     my $randomizer = BioX::SeqUtils::RandomSequence->new({ l => $length, 
+                                                           s => 1,
                                                            y => "nucleotide",
                                                            a => $a_frequency,
                                                            c => $c_frequency,
@@ -187,6 +210,8 @@ You can use the same randomizer object to create all types of sequences, by pass
     my $protein_now   = $randomizer->rand_seq({ y => 'p' });           # Still richer GC
     my $dinuc_for_fun = $randomizer->rand_seq({ y => 'd',
                                                 a => 1 });             # Missing bases resets all freq to 1
+    my $protein_new   = $randomizer->rand_seq({ y => 'p',
+                                                s => 3 });             # Use codon table 'Yeast Mitochondrial'
 
 Type "protein" creates a protein of the given length l by creating a random nucleotide sequence with the given nucleotide frequencies of length l * 3, which is translated into a protein. The default length is 60. 
     
@@ -200,10 +225,13 @@ Type "set" creates a test protein set each with the given length l by creating a
 The indvidual methods may be preferred:
 
     my $nucleotide    = $randomizer->rand_nuc();
-    my $dinucleotide  = $randomizer->rand_nuc({ l =>2 });
+    my $dinucleotide  = $randomizer->rand_nuc({ l => 2 });
     my $protein       = $randomizer->rand_pro();
 
-    my ($pro1, $pro2) = @{ $randomizer->rand_pro_set() };
+The rand_pro_set() method uses wantarray(), and will either return a list or list reference (scalar) depending on the context:
+
+    my ($pro1, $pro2) = $randomizer->rand_pro_set();
+    my $protein_set   = $randomizer->rand_pro_set();
 
 =head1 DESCRIPTION
 
