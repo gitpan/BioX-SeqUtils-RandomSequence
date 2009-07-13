@@ -1,12 +1,18 @@
-use Test::More tests => 5;
+use Test::More tests => 7;
 
 BEGIN {
 use_ok( 'BioX::SeqUtils::RandomSequence' );
 }
 
 my $randomizer = BioX::SeqUtils::RandomSequence->new();
-my $test = $randomizer->rand_nuc(), "\n";
-ok( $test, "random nucleotide");
+my $test = $randomizer->rand_dna(), "\n";
+ok( $test, "random dinucleotide");
+
+my $test = $randomizer->rand_dna({ l => 200 }), "\n";
+ok( $test, "random dna");
+
+my $test = $randomizer->rand_rna(), "\n";
+ok( $test, "random rna");
 
 my $test = $randomizer->rand_pro(), "\n";
 ok( $test, "random protein");

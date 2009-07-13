@@ -7,11 +7,11 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.9.3');
+use version; our $VERSION = qv('0.9.4');
 
 {
-        my %type_of      :ATTR( :get<type>     :set<type>     :default<'n'>    :init_arg<y> );
-        my %length_of    :ATTR( :get<length>   :set<length>   :default<'4'>    :init_arg<l> );
+        my %type_of      :ATTR( :get<type>     :set<type>     :default<'2'>    :init_arg<y> );
+        my %length_of    :ATTR( :get<length>   :set<length>   :default<'2'>    :init_arg<l> );
         my %table_of     :ATTR( :get<table>    :set<table>    :default<'1'>    :init_arg<s> );
         my %a_freq_of    :ATTR( :get<a_freq>   :set<a_freq>   :default<'1'>    :init_arg<a> );
         my %c_freq_of    :ATTR( :get<c_freq>   :set<c_freq>   :default<'1'>    :init_arg<c> );
@@ -29,18 +29,20 @@ use version; our $VERSION = qv('0.9.3');
 	sub rand_seq {
 		my ( $self, $arg_ref ) = @_;
 
-		# Set parameters redefined by this method
-		$self->_args_to_attributes( $arg_ref );
+		my $type;
+		if    ( defined $arg_ref->{type} )   { $type = $arg_ref->{type};  }
+		elsif ( defined $arg_ref->{length} ) { $type = 'dna';             }  # Type not defined but length is = DNA
+		else                                 { $type = $self->get_type(); }
 
-		my $type = $self->get_type();
-		if    ( $type =~ m/^n/ ) { return $self->rand_nuc(); }
-		elsif ( $type =~ m/^d/ ) { return $self->rand_nuc({ l => 2}); }
-		elsif ( $type =~ m/^p/ ) { return $self->rand_pro(); }
-		elsif ( $type =~ m/^s/ ) { return $self->rand_pro_set(); }
+		if    ( $type =~ m/^2/ ) { $arg_ref->{length} = 2; return $self->rand_dna( $arg_ref ); }
+		elsif ( $type =~ m/^d/ ) { return $self->rand_dna( $arg_ref ); }
+		elsif ( $type =~ m/^r/ ) { return $self->rand_rna( $arg_ref ); }
+		elsif ( $type =~ m/^p/ ) { return $self->rand_pro( $arg_ref ); }
+		elsif ( $type =~ m/^s/ ) { return $self->rand_pro_set( $arg_ref ); }
                 return;
         }
 
-	sub rand_nuc {
+	sub rand_dna {
 		my ( $self, $arg_ref ) = @_;
 
 		# Set parameters redefined by this method
@@ -48,10 +50,17 @@ use version; our $VERSION = qv('0.9.3');
 
 		# Create random nucleotide sequence of specified length
 		my $tmpl_length = $self->get_length();
-		my $nucleotide  = $self->randomize_tmpl();
-		while ( length($nucleotide) < $tmpl_length ) { $nucleotide .= $self->randomize_tmpl(); }
-		$nucleotide     =~ s/^([ACGT]{$tmpl_length}).*$/$1/;
-                return $nucleotide;
+		my $nucleotides = $self->randomize_tmpl();
+		while ( length($nucleotides) < $tmpl_length ) { $nucleotides .= $self->randomize_tmpl(); }
+		$nucleotides     =~ s/^([ACGT]{$tmpl_length}).*$/$1/;
+                return $nucleotides;
+        }
+
+	sub rand_rna {
+		my ( $self, $arg_ref ) = @_;
+		my $nucleotides = $self->rand_dna( $arg_ref );
+		   $nucleotides =~ s/T/U/g;
+                return $nucleotides;
         }
 
 	sub rand_pro {
@@ -61,7 +70,7 @@ use version; our $VERSION = qv('0.9.3');
 		$self->_args_to_attributes( $arg_ref );
 
 		my $opt_l       = $arg_ref->{l} ? $arg_ref->{l} * 3 : $self->get_length() * 3;
-		my $seq         = $self->rand_nuc({ l => $opt_l });
+		my $seq         = $self->rand_dna({ l => $opt_l });
 		my $codon_table = Bio::Tools::CodonTable->new( -id => $self->get_table() );
 		if ( $codon_table->name() eq '' ) { print "  Error: Codon Table " . $self->get_table() . " not defined.\n"; exit; }
 		my $protein     = $codon_table->translate( $seq );
@@ -76,7 +85,7 @@ use version; our $VERSION = qv('0.9.3');
 		$self->_args_to_attributes( $arg_ref );
 
 		my $opt_l       = $arg_ref->{l} ? $arg_ref->{l} * 3 : $self->get_length() * 3;
-		my $seq         = $self->rand_nuc({ l => $opt_l + 1 });
+		my $seq         = $self->rand_dna({ l => $opt_l + 1 });
 		my $seq1        = $seq; $seq1  =~ s/.$//;  # Remove the last base
 		my $seq2        = $seq; $seq2  =~ s/^.//;  # Remove the first base
 		
@@ -125,7 +134,7 @@ use version; our $VERSION = qv('0.9.3');
 	sub _check_type {
 		my ( $self, $arg_ref ) = @_;
 		my $type = $self->get_type(); 
-		if ( $type =~ m/^[^ndps]/ )   { print STDERR "  Error: Type (y) must be n, d, p, or s.\n"; exit; }
+		if ( $type =~ m/^[^2drps]/ )   { print STDERR "  Error: Type (y) must be 2, d, r, p, or s.\n"; exit; }
 		return;
 	}
 
@@ -149,93 +158,168 @@ BioX::SeqUtils::RandomSequence - Creates a random nuc or prot sequence with give
 
 =head1 VERSION
 
-This document describes BioX::SeqUtils::RandomSequence version 0.9.3
+This document describes BioX::SeqUtils::RandomSequence version 0.9.4
 
 =head1 SYNOPSIS
 
-The package includes scripts for random nucleotide, dinucleotide, protein, and protein set. The length and frequency parameters should always be integers.
-
-To create a nucleotide:
-
-    ./random-nucleotide.pp                               # Defaults: length 60, all frequencies .25
-    ./random-nucleotide.pp -l2200 -a23 -c27 -g27 -t23    # Enrich GC content with length 2200
-
-To create a dinucleotide:
-
-    ./random-dinucleotide.pp                             # Defaults: length 2, all frequencies .25
-    ./random-dinucleotide.pp -a225 -c275 -g275 -t225     # Enrich GC content ~ more 
-
-To create a protein:
-
-    ./random-protein.pp                                  # Defaults: length 60, all frequencies .25
-    ./random-protein.pp -l2200 -a23 -c27 -g27 -t23       # Enrich underlying GC content, aa length 2200
-
-To create a protein set (with common DNA shifted by one base):
-
-    ./random-protein-set.pp                              # Defaults: length 60, all frequencies .25
-    ./random-protein-set.pp -l2200 -a23 -c27 -g27 -t23   # Enrich underlying GC content 
-
-Additionally, a "master script" uses a tYpe parameter for any:
-
-    ./random-sequence.pp -yn -l100                       # Type n nucleotide
-    ./random-sequence.pp -yd                             # Type d dinucleotide
-    ./random-sequence.pp -yp -l100                       # Type p protein
-    ./random-sequence.pp -ys -l100                       # Type s protein set
-
-This module uses Bio::Tools::CodonTable for translations, and the parameter s can be used to change from the default (1) Standard:
-
-    ./random-protein.pp -l2200 -s2                       # Non-standard codon table
-
-In script, each sequence type can be accessed using the "y" (tYpe) parameter with rand_seq(). The default is "nucleotide". The type may be set in new() or any of the rand_X() methods. All four frequencies are set to "1" by default ( so that the probablity of each A, C, G, T is 0.25 ).
+The randomizer object accepts parameters for sequence length (l), codon table (s), sequence 
+type (y), and frequencies for each of the nucleotide bases in DNA (a, c, g, t). The defaults 
+are shown below:
 
     use BioX::SeqUtils::RandomSequence;
 
-    my $randomizer = BioX::SeqUtils::RandomSequence->new({ l => $length, 
+    my $randomizer = BioX::SeqUtils::RandomSequence->new({ l => 2, 
                                                            s => 1,
-                                                           y => "nucleotide",
-                                                           a => $a_frequency,
-                                                           c => $c_frequency,
-                                                           g => $g_frequency,
-                                                           t => $t_frequency });
+                                                           y => "dna",
+                                                           a => 1,
+                                                           c => 1,
+                                                           g => 1,
+                                                           t => 1 });
     print $randomizer->rand_seq(), "\n";
 
-You can use the same randomizer object to create all types of sequences, by passing the changing parameters with each call.
+=head1 DESCRIPTION
 
-    my $nuc_short     = $randomizer->rand_seq({ y => 'n', l => 21 });
-    my $nuc_long      = $randomizer->rand_seq({ l => 2200 });          # Still nucleotide
+Create random DNA, RNA and protein sequences.
+
+=head3 NUCLEOTIDE FREQUENCIES
+
+All four frequencies are set to "1" by default ( so that the probablity of each A, C, G, T is 
+0.25 ). The frequencies should always be positive integers, and you should consider what you 
+choose. The algorithm works by creating a template with length equal to the sum L of A_freq, 
+C_freq, G_freq, and T_freq with exactly the numbers of each assigned to those frequencies. The 
+template is resorted for each L length part of the required sequence (and trimmed to required 
+length). For example, using the default frequencies, a sequence 100 bases long will have 
+exactly 25 A, 25 C, 25 G, and 25 T. If you want sequences from a wider distribution, use 
+four digit (or greater) values for the frequencies. For a sequence length of a few dozen bases, 
+this example would be broad enough to create repeat 
+islands: ($A_freq, $C_freq, $G_freq, $T_freq) = (2245, 2755, 2755, 2245).
+
+=head3 NUCLEOTIDE FREQUENCIES UNDERLIE PROTEINS
+
+Protein sequences are translated from random DNA sequence of the necessary length 
+using the assigned nucleotide frequencies. This module does not allow you to directly 
+influence the amino acid frequencies. If you need this sort of functionality, please contact 
+the author.
+
+=head1 METHODS
+
+=over
+
+=item * rand_seq()
+
+After creating a randomizer object, each sequence type can be accessed using the "y" (tYpe) 
+parameter with rand_seq(). The default type is "2" (for dinucleotide, a length two dna 
+sequence). The other types are "d" (dna), "r" (rna), "p" (protein), and "s" (protein set).
+
+You can use the same randomizer object to create all types of sequences, by passing the 
+changing parameters with each call.
+
+    my $dinucleotide  = $randomizer->rand_seq();                       # Default settings
+    my $nuc_short     = $randomizer->rand_seq({ y => 'd', l => 21 });  # Create DNA length 21
+    my $nuc_long      = $randomizer->rand_seq({ l => 2200 });          # Still DNA, now length 2200
     my $nuc_richer    = $randomizer->rand_seq({ a => 225, 
                                                 c => 275, 
 						g => 275, 
-						t => 225 });           # Still length 2200
+						t => 225 });           # Still length 2200, GC richer
     my $protein_now   = $randomizer->rand_seq({ y => 'p' });           # Still richer GC
-    my $dinuc_for_fun = $randomizer->rand_seq({ y => 'd',
-                                                a => 1 });             # Missing bases resets all freq to 1
+    my $protein_def   = $randomizer->rand_seq({ a => 1 });             # Missing bases resets all freq to 1
     my $protein_new   = $randomizer->rand_seq({ y => 'p',
                                                 s => 3 });             # Use codon table 'Yeast Mitochondrial'
 
-Type "protein" creates a protein of the given length l by creating a random nucleotide sequence with the given nucleotide frequencies of length l * 3, which is translated into a protein. The default length is 60. 
-    
-    my $randomizer = BioX::SeqUtils::RandomSequence->new();
-    print $randomizer->rand_seq({ y = "protein" }), "\n";
-    
-Type "set" creates a test protein set each with the given length l by creating a random nucleotide sequence with the given nucleotide frequencies of length l * 3 + 1, removing the first base for sequence 1 and removing the last base for sequence 2, then translating them into proteins. 
+The type parameter only works with rand_seq().
 
-    print join( " ", @{ $randomizer->rand_seq({ y = "set" }) }, "\n";
-  
-The indvidual methods may be preferred:
+=item * rand_dna()
 
-    my $nucleotide    = $randomizer->rand_nuc();
-    my $dinucleotide  = $randomizer->rand_nuc({ l => 2 });
+This method may be used directly to create DNA sequences.
+
+    my $dinucleotide  = $randomizer->rand_dna();
+    my $dna           = $randomizer->rand_dna({ l => 2200 });
+       $dna           = $randomizer->rand_seq({ l => 200, 
+                                                a => 225, 
+                                                c => 275, 
+						g => 275, 
+						t => 225 });           # Larger variance
+
+=item * rand_rna()
+
+This method may be used directly to create RNA sequences.
+
+    my $rna           = $randomizer->rand_rna({ l => 21 });
+       $rna           = $randomizer->rand_rna({ l => 1000, 
+                                                a => 225, 
+                                                c => 275, 
+						g => 275, 
+						t => 225 });       
+
+=item * rand_pro()
+
+This method may be used directly to create protein sequences.
+
+A protein of the given length L is created by translating a random DNA sequence of 
+length L * 3 with the given nucleotide frequencies. 
+    
     my $protein       = $randomizer->rand_pro();
 
-The rand_pro_set() method uses wantarray(), and will either return a list or list reference (scalar) depending on the context:
+=item * rand_pro_set()
+
+This method may be used directly to create a protein sequence set.
+
+A protein set is correlatable at the DNA level by creating a random 
+DNA sequence with the given nucleotide frequencies of length L * 3 + 1, removing 
+the first base for sequence 1 and removing the last base for sequence 2, then 
+translating them into proteins. 
+
+This method uses wantarray(), and will either return a list or list 
+reference (scalar) depending on the context:
 
     my ($pro1, $pro2) = $randomizer->rand_pro_set();
     my $protein_set   = $randomizer->rand_pro_set();
 
-=head1 DESCRIPTION
+=back
 
-Create random nucleotide and protein sequences.
+=head1 SCRIPTS
+
+The package includes scripts for random dna, rna, dinucleotide, and protein 
+sequences. The length and frequency parameters should always be integers.
+
+To create a dinucleotide sequence:
+
+    ./random-dna.pp                                      # Defaults: length 2, all frequencies 1
+    ./random-dna.pp -a250 -c250 -g250 -t250              # Create broader distribution
+
+To create a dna sequence:
+
+    ./random-dna.pp -l21                                 # Defaults: all frequencies 1 ( p = .25 )
+    ./random-dna.pp -l2200 -a23 -c27 -g27 -t23           # Enrich GC content with length 2200
+
+To create a rna sequence:
+
+    ./random-rna.pp -l100                                     
+    ./random-rna.pp -l2200 -a23 -c27 -g27 -t23           
+
+To create a protein sequence:
+
+    ./random-protein.pp                                  # Defaults: length 2, all frequencies .25
+    ./random-protein.pp -l2200 -a23 -c27 -g27 -t23       # Enrich underlying GC content, aa length 2200
+
+To create a protein set (with common DNA shifted by one base):
+
+    ./random-protein-set.pp                              # Defaults: length 2, all frequencies .25
+    ./random-protein-set.pp -l2200 -a23 -c27 -g27 -t23   # Enrich underlying GC content 
+
+Additionally, a "master script" uses a tYpe parameter for any:
+
+    ./random-sequence.pp                                 # Type 2 dinucleotide
+    ./random-sequence.pp -yd -l100                       # Type d dna
+    ./random-sequence.pp -yr -l100                       # Type r rna
+    ./random-sequence.pp -yp -l100                       # Type p protein
+    ./random-sequence.pp -ys -l100                       # Type s protein set
+
+This module uses Bio::Tools::CodonTable for translations, and the parameter s can be used to 
+change from the default (1) "Standard":
+
+    ./random-protein.pp -l2200 -s2                       # Non-standard codon table
+
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
@@ -243,9 +327,9 @@ None.
 
 =head1 DEPENDENCIES
 
-Class::Std;
-Class::Std::Utils;
-Bio::Tools::CodonTable;
+    Class::Std;
+    Class::Std::Utils;
+    Bio::Tools::CodonTable;
 
 =head1 INCOMPATIBILITIES
 
@@ -293,4 +377,17 @@ RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A
 FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
 SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGES.
+
+=cut
+
+Option a	+int		frequency of nucleotide A
+Option c	+int		frequency of nucleotide C
+Option g	+int		frequency of nucleotide G
+Option l	+int		length 
+Option t	+int		frequency of nucleotide T
+Option s	+int		codon table 
+Option y	2,d,r,p,s	type (dinucleotide, dna, rna, protein, set)
+
+
+
 

@@ -1,5 +1,11 @@
 Revision history for BioX-SeqUtils-RandomSequence
 
+0.9.4  Mon Jul 13 00:40:00 2009
+       Refactor confusing terms.
+       Added RNA method.
+       Set defaults to produce dinucleotides.
+       Improved documentation organization.
+
 0.9.3  Sat Jul 12 09:06:00 2009
        Add wantarray() to rand_pro_set().
        Add option -s to change codon_table.
