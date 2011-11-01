@@ -6,7 +6,7 @@ WriteMakefile(
     NAME                => 'BioX::SeqUtils::RandomSequence',
     AUTHOR              => 'Roger A Hall <rogerhall@cpan.org>',
     VERSION_FROM        => 'lib/BioX/SeqUtils/RandomSequence.pm',
-    ABSTRACT            => 'Create random nucleotide and protein sequences.',
+    ABSTRACT            => 'Create random DNA, RNA, and protein sequences.',
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More'             => 0,

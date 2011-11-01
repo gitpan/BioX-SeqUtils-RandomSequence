@@ -1,12 +1,9 @@
-BioX-SeqUtils-RandomSequence version 0.9.4
+BioX-SeqUtils-RandomSequence version 0.9.5
 
 Create random nucleotide and protein sequences with a specified nucleotide 
 distribution. Plus:
 	Shortcuts for dinucleotides. 
-	Protein sets from common DNA.
-
-This module was developed for release for testing. It may be discontinued 
-if-and-when the core logic is added to Bioperl in Bio::SeqUtils.
+	Off-frame protein sets from common DNA.
 
 INSTALLATION
 
@@ -23,7 +20,7 @@ None.
 
 COPYRIGHT AND LICENSE
 
-Copyleft (C) 2009, Roger A Hall
+Copyleft (C) 2011, Roger A Hall
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

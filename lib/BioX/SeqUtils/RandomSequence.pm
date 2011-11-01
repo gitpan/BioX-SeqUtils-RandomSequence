@@ -7,7 +7,7 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.9.4');
+use version; our $VERSION = qv('0.9.5');
 
 {
         my %type_of      :ATTR( :get<type>     :set<type>     :default<'2'>    :init_arg<y> );
@@ -23,18 +23,19 @@ use version; our $VERSION = qv('0.9.4');
                 my ($self, $ident, $arg_ref) = @_;
 		$self->_check_type();
 		$self->_reset_tmpl();
+		#print "START LENGTH: " . $self->get_length() . "\n";
+		if    ((! defined $arg_ref->{y} ) && defined $arg_ref->{l} ) { $self->set_type('dna'); }  # Type not defined but length is = DNA
+		#print "START TYPE: " . $self->get_type() . "\n";
                 return;
         }
 
 	sub rand_seq {
+		#print " rand_seq() \n";
 		my ( $self, $arg_ref ) = @_;
 
-		my $type;
-		if    ( defined $arg_ref->{type} )   { $type = $arg_ref->{type};  }
-		elsif ( defined $arg_ref->{length} ) { $type = 'dna';             }  # Type not defined but length is = DNA
-		else                                 { $type = $self->get_type(); }
-
-		if    ( $type =~ m/^2/ ) { $arg_ref->{length} = 2; return $self->rand_dna( $arg_ref ); }
+		my $type = $self->get_type();
+		#print "  TYPE: $type \n";
+		if    ( $type =~ m/^2/ ) { return $self->rand_dna( $arg_ref ); }
 		elsif ( $type =~ m/^d/ ) { return $self->rand_dna( $arg_ref ); }
 		elsif ( $type =~ m/^r/ ) { return $self->rand_rna( $arg_ref ); }
 		elsif ( $type =~ m/^p/ ) { return $self->rand_pro( $arg_ref ); }
@@ -43,6 +44,7 @@ use version; our $VERSION = qv('0.9.4');
         }
 
 	sub rand_dna {
+		#print " rand_dna() \n";
 		my ( $self, $arg_ref ) = @_;
 
 		# Set parameters redefined by this method
@@ -52,11 +54,13 @@ use version; our $VERSION = qv('0.9.4');
 		my $tmpl_length = $self->get_length();
 		my $nucleotides = $self->randomize_tmpl();
 		while ( length($nucleotides) < $tmpl_length ) { $nucleotides .= $self->randomize_tmpl(); }
+		#print " rand_dna()->trim() $tmpl_length \n";
 		$nucleotides     =~ s/^([ACGT]{$tmpl_length}).*$/$1/;
                 return $nucleotides;
         }
 
 	sub rand_rna {
+		#print " rand_rna() \n";
 		my ( $self, $arg_ref ) = @_;
 		my $nucleotides = $self->rand_dna( $arg_ref );
 		   $nucleotides =~ s/T/U/g;
@@ -64,35 +68,49 @@ use version; our $VERSION = qv('0.9.4');
         }
 
 	sub rand_pro {
+		#print " rand_pro() \n";
 		my ( $self, $arg_ref ) = @_;
+
+		# Set type to protein
+		$arg_ref->{y} = 'p';
 
 		# Set parameters redefined by this method
 		$self->_args_to_attributes( $arg_ref );
 
-		my $opt_l       = $arg_ref->{l} ? $arg_ref->{l} * 3 : $self->get_length() * 3;
-		my $seq         = $self->rand_dna({ l => $opt_l });
+		my $seq         = $self->rand_dna();
+		#print "    Sequence: $seq \n";
 		my $codon_table = Bio::Tools::CodonTable->new( -id => $self->get_table() );
 		if ( $codon_table->name() eq '' ) { print "  Error: Codon Table " . $self->get_table() . " not defined.\n"; exit; }
 		my $protein     = $codon_table->translate( $seq );
+		#print "    Protein: $protein \n";
 		
                 return $protein;
         }
 
 	sub rand_pro_set {
+		#print " rand_pro_set() \n";
 		my ( $self, $arg_ref ) = @_;
+		#print " LENGTH: " . $arg_ref->{l} . "\n";
 
 		# Set parameters redefined by this method
 		$self->_args_to_attributes( $arg_ref );
 
-		my $opt_l       = $arg_ref->{l} ? $arg_ref->{l} * 3 : $self->get_length() * 3;
-		my $seq         = $self->rand_dna({ l => $opt_l + 1 });
+		#print " LENGTH: " .  $self->get_length() . "\n";
+
+		my $seq         = $self->rand_dna({ l => $self->get_length() + 1 });
 		my $seq1        = $seq; $seq1  =~ s/.$//;  # Remove the last base
 		my $seq2        = $seq; $seq2  =~ s/^.//;  # Remove the first base
+		#print "seq1: $seq1 \n";
+		#print "seq2: $seq2 \n";
+
+		$self->set_length( $self->get_length() - 1 );
 		
 		my $codon_table = Bio::Tools::CodonTable->new( -id => $self->get_table() );
 		if ( $codon_table->name() eq '' ) { print "  Error: Codon Table " . $self->get_table() . " not defined.\n"; exit; }
 		my $protein1    = $codon_table->translate( $seq1 );
 		my $protein2    = $codon_table->translate( $seq2 );
+		#print "pro1: $protein1 \n";
+		#print "pro2: $protein2 \n";
 		
                 return wantarray() ? ( $protein1, $protein2 ) : [ $protein1, $protein2 ];
         }
@@ -111,11 +129,21 @@ use version; our $VERSION = qv('0.9.4');
 	}
 
 	sub _args_to_attributes {
+		#print "args_to_attributes\n";
 		my ( $self, $arg_ref ) = @_;
 
+		# Type (y)
 		if ( defined $arg_ref->{y} ) { $self->set_type( $arg_ref->{y} ); }
-		if ( defined $arg_ref->{l} ) { $self->set_length( $arg_ref->{l} ); }
+		$self->_check_type();
+		my $type = $self->get_type();
+		#print "    TYPE: $type\n";
 
+		# Length (l)
+		if ( ($type =~ m/^p/ or $type =~ m/^s/) and defined $arg_ref->{l} ) { $self->set_length( $arg_ref->{l} * 3 ); }
+		elsif ( $type =~ m/^2/ )                                            { $self->set_length( 2 ); } 
+		elsif ( defined $arg_ref->{1} )                                     { $self->set_length( $arg_ref->{l} ); } 
+
+		# Frequencies (a,c,g,t)
 		my $freq_changed       = 0;
 
 		if ( defined $arg_ref->{a} ) { $self->set_a_freq( $arg_ref->{a} ); $freq_changed++; }
@@ -126,8 +154,8 @@ use version; our $VERSION = qv('0.9.4');
 		# All frequencies must be set together or they are all reset to 1
 		if ( $freq_changed && $freq_changed < 4 ) { $self->set_a_freq( 1 ); $self->set_c_freq( 1 ); $self->set_g_freq( 1 ); $self->set_t_freq( 1 ); }
 
-		$self->_check_type();
 		$self->_reset_tmpl() if $freq_changed;
+
 		return;
 	}
 
@@ -154,11 +182,11 @@ __END__
 
 =head1 NAME
 
-BioX::SeqUtils::RandomSequence - Creates a random nuc or prot sequence with given nuc frequencies
+BioX::SeqUtils::RandomSequence - Creates random DNA, RNA and protein sequences with given nucleotide frequencies.
 
 =head1 VERSION
 
-This document describes BioX::SeqUtils::RandomSequence version 0.9.4
+This document describes BioX::SeqUtils::RandomSequence version 0.9.5
 
 =head1 SYNOPSIS
 

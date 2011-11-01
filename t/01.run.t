@@ -14,7 +14,7 @@ ok( $test, "random dna");
 my $test = $randomizer->rand_rna(), "\n";
 ok( $test, "random rna");
 
-my $test = $randomizer->rand_pro(), "\n";
+my $test = $randomizer->rand_pro({ l => 100 }), "\n";
 ok( $test, "random protein");
 
 my $test = $randomizer->rand_pro_set(), "\n";

@@ -1,5 +1,8 @@
 Revision history for BioX-SeqUtils-RandomSequence
 
+0.9.5  Mon Nov 1 16:20:00 2011
+       Length and default DNA bug fix.
+
 0.9.4  Mon Jul 13 00:40:00 2009
        Refactor confusing terms.
        Added RNA method.
